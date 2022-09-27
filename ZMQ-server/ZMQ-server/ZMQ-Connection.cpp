@@ -11,6 +11,11 @@
 #include <thread>
 using namespace std::chrono_literals;
 
+// ZMQ 4.3.4
+// The aim of this code is to test 'bidirectional' PUB-SUB patter.
+// It is a very C-style code. It has been developed only for testing purposes.
+// There is a simple filtering applied on the SUB socket.
+
 
 class Publisher 
 {
