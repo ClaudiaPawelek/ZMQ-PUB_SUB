@@ -20,12 +20,12 @@ using namespace std::chrono_literals;
 class Publisher 
 {
 public:
-    Publisher(const char* port)
-        :  mPort(port)
+    Publisher(const char* port, const char* addressForPub)
+        :  mPort(port), mAddressForPub(addressForPub)
     {
         mPublisher = zmq_socket(mContext, ZMQ_PUB);
-        std::string address = "tcp://10.88.100.135:" + std::string(mPort);
-        auto rc = zmq_bind(mPublisher, address.c_str());
+        std::string addressPortTCP = "tcp://" + std::string(mAddressForPub) + ":" + std::string(mPort);
+        auto rc = zmq_bind(mPublisher, addressPortTCP.c_str());
         assert(rc == 0);
 
         //  Initialize random number generator
@@ -57,11 +57,11 @@ public:
             sprintf_s(update, "%05d-%d", prefix, message);
             zmq_send(mPublisher, update, 20, 0);
 
-            std::this_thread::sleep_for(5000ms);
+            std::this_thread::sleep_for(2000ms);
         }
     }
 
-
+    const char* mAddressForPub;
     const char* mPort;
     void* mPublisher;
     void* mContext = zmq_ctx_new();
@@ -72,13 +72,13 @@ public:
 class Subscriber
 {
 public:
-    Subscriber(const char* port)
-        : mPort(port)
+    Subscriber(const char* port, const char* address)
+        : mPort(port), mAddress (address)
     {
         // SUBSCRIBER response 
         mSubscriber = zmq_socket(mContext, ZMQ_SUB);
-        std::string address = "tcp://10.88.100.135:" + std::string(mPort);
-        auto  rc_res = zmq_connect(mSubscriber, address.c_str());
+        std::string addressPortTCP = "tcp://" + std::string(mAddress) + ":" + std::string(mPort);
+        auto  rc_res = zmq_connect(mSubscriber, addressPortTCP.c_str());
         assert(rc_res == 0);
 
         // zmq_setsockopt set ØMQ socket options
@@ -111,11 +111,12 @@ public:
             ss << response;
             std::cout << "Received message. Bytes: " << received << ". Message: " << ss.str() << "\n";
 
-            std::this_thread::sleep_for(5000ms);
+            std::this_thread::sleep_for(2000ms);
         }
     }
 
     const char* mPort;
+    const char* mAddress;
     void* mSubscriber;
     void* mContext = zmq_ctx_new();
     // A ØMQ context is thread safe and may be shared among as many application threads as necessary,
@@ -126,9 +127,9 @@ public:
 class Connection
 {
 public:
-    Connection(const char* publishingPort, const char* subscribingPort)
-        : mPub(publishingPort),
-        mSub(subscribingPort)
+    Connection(const char* publishingPort, const char* subscribingPort, const char* addressToReceive, const char* addressForPub)
+        : mPub(publishingPort, addressForPub),
+        mSub(subscribingPort, addressToReceive)
     {
         std::cout << "-- Create connection -- \n";
 
@@ -143,7 +144,7 @@ public:
 
     ~Connection() = default;
 
-    Publisher mPub;
+    Publisher mPub;  
     Subscriber mSub;
 };
 
@@ -152,10 +153,12 @@ int main(int argc, char* argv[])
 {
     // Read port numbers for sending and responding
     const char* portToSend = (argc > 0) ? argv[1] : "0";
-    const char* portToReceived = (argc > 1) ? argv[2] : "0";
+    const char* portToReceive = (argc > 1) ? argv[2] : "0";
+    const char* addressToReceive = (argc > 2) ? argv[3] : "localhost";
+    const char* addressForPub = (argc > 3) ? argv[4] : "*";
 
     // Create connection 
-    Connection connection(portToSend, portToReceived);
+    Connection connection(portToSend, portToReceive, addressToReceive, addressForPub);
    
     return 0;
 }
